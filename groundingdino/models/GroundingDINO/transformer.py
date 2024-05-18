@@ -21,6 +21,7 @@ from typing import Optional
 import torch
 import torch.utils.checkpoint as checkpoint
 from torch import Tensor, nn
+import torch.nn.functional as F
 
 from groundingdino.util.misc import inverse_sigmoid
 
@@ -291,14 +292,32 @@ class Transformer(nn.Module):
                 enc_outputs_class_unselected = self.enc_out_class_embed(output_memory, text_dict)
             else:
                 enc_outputs_class_unselected = self.enc_out_class_embed(output_memory)
+            
+            print("enc_outputs_class_unselected", enc_outputs_class_unselected)
 
             topk_logits = enc_outputs_class_unselected.max(-1)[0]
             enc_outputs_coord_unselected = (
                 self.enc_out_bbox_embed(output_memory) + output_proposals
             )  # (bs, \sum{hw}, 4) unsigmoid
             topk = self.num_queries
+            print("topk_logits", topk_logits.shape)
+            print("topk", topk)
 
-            topk_proposals = torch.topk(topk_logits, topk, dim=1)[1]  # bs, nq
+            try:
+                topk_proposals = torch.topk(topk_logits, topk, dim=1)[1]  # bs, nq
+
+            except Exception as e:
+                #continue
+                raise ValueError("topk_logits", topk_logits.shape)
+            
+             
+                #TODO: debug
+                #import ipdb; ipdb.set_trace()
+                #pad topk_logits to 900
+
+                topk = topk_logits.shape[-1]
+                topk_proposals = torch.topk(topk_logits, topk, dim=1)[1]
+               
 
             # gather boxes
             refpoint_embed_undetach = torch.gather(
